@@ -21,3 +21,4 @@ done
 echo "[+] Cleared $(expr $f - $cf - $af) files"
 echo "[+] Deleted $cf compressed files"
 echo "[+] Deleted $af archive files"
+
