@@ -1,0 +1,49 @@
+#!/usr/bin/nft -f
+# vim:set ts=2 sw=2 et:
+
+# IPv4/IPv6 Simple & Safe firewall ruleset.
+# More examples in /usr/share/nftables/ and /usr/share/doc/nftables/examples/.
+
+include "/etc/nftables/blacklist.nft"
+
+table inet darkhole {
+
+    set blacklist-global {
+        type ipv4_addr
+        size 65536
+        flags timeout
+    }
+
+    set blacklist6 {
+        type ipv6_addr
+        size 65536
+        flags timeout,dynamic
+        timeout 72h
+    }
+
+    set trap_ports {
+        type inet_service
+        elements = { 2, 20, 21, 23, 25, 68, 79, 98, 110, 111, 113, 119, 135, 136, 137, 138, 139,
+                     143, 445, 465, 995, 2049, 3306, 3389, 5432, 6000, 6667 }
+    }
+
+    include "/etc/nftables/whitelist.nft"
+
+  chain input {
+    type filter hook input priority -5
+    policy accept
+
+    iifname lo accept comment "allow from loopback"
+    ip saddr @whitelist accept
+    ip saddr @blacklist-global counter drop
+    tcp dport @trap_ports update @blacklist { ip saddr } counter
+    udp dport @trap_ports update @blacklist { ip saddr } counter
+    tcp dport @trap_ports update @blacklist6 { ip6 saddr } counter
+    udp dport @trap_ports update @blacklist6 { ip6 saddr } counter
+    ip saddr @blacklist counter drop
+    ip6 saddr @blacklist6 counter drop
+#    tcp flags syn tcp dport { 22, 22100, 22122, 42122 } meter bruteSSH { ip saddr ct count over 3 } update @blacklist { ip saddr timeout 10m } counter drop
+    ct state invalid drop comment "early drop of invalid connections"
+  }
+
+}
